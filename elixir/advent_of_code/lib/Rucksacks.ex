@@ -1,11 +1,10 @@
 defmodule Rucksacks do
   def solve do
-    file =
-      File.read!("./lib/input.txt")
+    split_file = File.read!("./lib/input.txt")
+    |> String.split("\n")
 
     part1 =
-      file
-      |> String.split("\n")
+      split_file
       |> Enum.map(fn line ->
         line_length = div(String.length(line), 2)
         parts = String.split_at(line, line_length)
@@ -36,8 +35,7 @@ defmodule Rucksacks do
     IO.inspect(part1)
 
     part2 =
-      file
-      |> String.split("\n")
+      split_file
       |> Enum.chunk_every(3)
       |> Enum.map(fn grouped_lines ->
         IO.inspect(grouped_lines)
