@@ -38,10 +38,7 @@ defmodule Rucksacks do
       split_file
       |> Enum.chunk_every(3)
       |> Enum.map(fn grouped_lines ->
-        IO.inspect(grouped_lines)
-
         Enum.reduce(grouped_lines, %{}, fn line, acc ->
-          IO.inspect(acc)
           String.graphemes(line)
           |> Enum.frequencies()
           |> Map.keys()
