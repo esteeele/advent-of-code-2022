@@ -43,6 +43,7 @@ defmodule Crates do
         starting_crates = Map.get(crates, start_pile)
         crates_to_move = starting_crates |> Enum.slice(0, num_crates)
 
+        # part 1 = foldl, part 2 = foldr
         updated_state = List.foldr(crates_to_move, crates, fn crate, acc ->
           acc = Map.update!(acc, end_pile, fn existing_val ->
             [crate | existing_val]
