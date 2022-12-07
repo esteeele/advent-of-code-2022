@@ -54,6 +54,7 @@ defmodule Crates do
         crates_to_move = starting_crates |> Enum.slice(0, num_crates)
 
         updated_state =
+          #part 1 = foldl, part 2 = foldr
           List.foldr(crates_to_move, crates, fn crate, acc ->
             acc =
               Map.update!(acc, end_pile, fn existing_val ->
