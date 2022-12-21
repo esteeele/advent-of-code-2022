@@ -10,7 +10,7 @@ public fun solve(lines: List<String>) {
         .filter { line -> line.size > 2 }
         .map { line -> parseMonkey(line) }
 
-    val finishedMonkeys: Map<String, Long> = findAllPossibleValuesIteratively(knownMonkeys, monkeys, rootMonkey)
+    val finishedMonkeys: Map<String, Long> = findAllPossibleValuesIteratively(knownMonkeys, monkeys)
     val rootValuePart1: Long = findValueForEquation(finishedMonkeys, rootMonkey)
     println(rootValuePart1)
 
@@ -18,8 +18,10 @@ public fun solve(lines: List<String>) {
     val part2Map = knownMonkeys.toMutableMap()
     part2Map.remove("humn")
 
-    val partiallyCompleteMonkeys: MutableMap<String, Long> = findAllPossibleValuesIteratively(part2Map, monkeys, rootMonkey)
-        .toMutableMap()
+    val partiallyCompleteMonkeys: MutableMap<String, Long> =
+        findAllPossibleValuesIteratively(part2Map, monkeys)
+            .toMutableMap()
+
     /**
      * e.g.
      * root = pppw = sjmn (we know sjmm is 150) so pppw must be 150 as well
@@ -90,37 +92,31 @@ private fun extractRootMonkey(lines: List<String>): MonkeyWithMaths {
 
 private fun findAllPossibleValuesIteratively(
     knownMonkeys: Map<String, Long>,
-    unknownMonkeys: List<MonkeyWithMaths>,
-    root: MonkeyWithMaths
+    unknownMonkeys: List<MonkeyWithMaths>
 ): Map<String, Long> {
-    if (knownMonkeys.containsKey(root.operandMonkey1) and knownMonkeys.containsKey(root.operandMonkey2)) {
-        return knownMonkeys
-    } else {
-        val newlyDiscoveredVals: MutableMap<String, Long> = unknownMonkeys
-            .filter { monkey ->
-                knownMonkeys.containsKey(monkey.operandMonkey1)
-                        && knownMonkeys.containsKey(monkey.operandMonkey2)
-            }
-            .map { monkeyMaths ->
-                val result = findValueForEquation(knownMonkeys, monkeyMaths)
-                MonkeyWithResult(monkeyMaths.resultMonkey, result)
-            }
-            .associate { monkeyResult -> monkeyResult.monkeyName to monkeyResult.monkeyValue }
-            .toMutableMap()
-
-        if (newlyDiscoveredVals.isEmpty()) {
-            //can't solve anymore (part 2 thing)
-            return knownMonkeys
+    val newlyDiscoveredVals: MutableMap<String, Long> = unknownMonkeys
+        .filter { monkey ->
+            knownMonkeys.containsKey(monkey.operandMonkey1)
+                    && knownMonkeys.containsKey(monkey.operandMonkey2)
         }
+        .map { monkeyMaths ->
+            val result = findValueForEquation(knownMonkeys, monkeyMaths)
+            MonkeyWithResult(monkeyMaths.resultMonkey, result)
+        }
+        .associate { monkeyResult -> monkeyResult.monkeyName to monkeyResult.monkeyValue }
+        .toMutableMap()
 
-        newlyDiscoveredVals.putAll(knownMonkeys)
-
-        return findAllPossibleValuesIteratively(
-            newlyDiscoveredVals,
-            unknownMonkeys.filter { monkey -> !newlyDiscoveredVals.containsKey(monkey.resultMonkey) },
-            root
-        )
+    if (newlyDiscoveredVals.isEmpty()) {
+        //can't solve anymore (part 2 thing)
+        return knownMonkeys
     }
+
+    newlyDiscoveredVals.putAll(knownMonkeys)
+
+    return findAllPossibleValuesIteratively(
+        newlyDiscoveredVals,
+        unknownMonkeys.filter { monkey -> !newlyDiscoveredVals.containsKey(monkey.resultMonkey) }
+    )
 }
 
 private fun findValueForEquation(
