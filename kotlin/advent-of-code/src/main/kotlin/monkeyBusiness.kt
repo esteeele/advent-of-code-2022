@@ -1,24 +1,24 @@
 public fun solve(lines: List<String>) {
-    val rootMaths = extractRootMonkey(lines)
+    val rootMonkey = extractRootMonkey(lines)
 
     //map associates the monkeys we know and what numbers they have
     val knownMonkeys = lines.map { line -> line.split(" ") }
         .filter { line -> line.size == 2 }
         .associate { line -> line[0].replace(":", "") to line[1].toLong() }
 
-    val monkeys: List<MonkeyMaths> = lines.map { line -> line.split(" ") }
+    val monkeys: List<MonkeyWithMaths> = lines.map { line -> line.split(" ") }
         .filter { line -> line.size > 2 }
         .map { line -> parseMonkey(line) }
 
-    val finishedMonkeys: Map<String, Long> = fillInValues(knownMonkeys, monkeys, rootMaths)
-    val rootValuePart1: Long = findValueForEquation(finishedMonkeys, rootMaths)
+    val finishedMonkeys: Map<String, Long> = findAllPossibleValuesIteratively(knownMonkeys, monkeys, rootMonkey)
+    val rootValuePart1: Long = findValueForEquation(finishedMonkeys, rootMonkey)
     println(rootValuePart1)
 
     //part 2
     val part2Map = knownMonkeys.toMutableMap()
     part2Map.remove("humn")
 
-    val partiallyCompleteMonkeys: MutableMap<String, Long> = fillInValues(part2Map, monkeys, rootMaths)
+    val partiallyCompleteMonkeys: MutableMap<String, Long> = findAllPossibleValuesIteratively(part2Map, monkeys, rootMonkey)
         .toMutableMap()
     /**
      * e.g.
@@ -27,8 +27,8 @@ public fun solve(lines: List<String>) {
      * cczh = sllz + lgvd (we know cczh is 600, sllz is 4 so lgvd is 596) ... and so on
      */
     //roots kinda a special case so handle outside of main iteration
-    val op1 = rootMaths.operandMonkey1
-    val op2 = rootMaths.operandMonkey2
+    val op1 = rootMonkey.operandMonkey1
+    val op2 = rootMonkey.operandMonkey2
 
     val nextMonkey = if (partiallyCompleteMonkeys.containsKey(op1)) {
         partiallyCompleteMonkeys[op2] = partiallyCompleteMonkeys.getValue(op1)
@@ -46,8 +46,8 @@ public fun solve(lines: List<String>) {
 
 //rejig equation as we know result and one operand, but not the other
 private fun monkeyChainToHuman(
-    monkeyToFigureOut: MonkeyMaths, knownMonkeys: Map<String, Long>,
-    monkeys: List<MonkeyMaths>
+    monkeyToFigureOut: MonkeyWithMaths, knownMonkeys: Map<String, Long>,
+    monkeys: List<MonkeyWithMaths>
 ): Map<String, Long> {
     val selfValue = knownMonkeys.getValue(monkeyToFigureOut.resultMonkey)
 
@@ -81,17 +81,17 @@ private fun monkeyChainToHuman(
     return monkeyChainToHuman(nextMonkeyInList, updatedMonkeys, monkeys)
 }
 
-private fun extractRootMonkey(lines: List<String>): MonkeyMaths {
+private fun extractRootMonkey(lines: List<String>): MonkeyWithMaths {
     val rootMaths = lines.filter { line -> line.contains("root") }
         .map { line -> parseMonkey(line.split(" ")) }
         .first();
     return rootMaths
 }
 
-private fun fillInValues(
+private fun findAllPossibleValuesIteratively(
     knownMonkeys: Map<String, Long>,
-    unknownMonkeys: List<MonkeyMaths>,
-    root: MonkeyMaths
+    unknownMonkeys: List<MonkeyWithMaths>,
+    root: MonkeyWithMaths
 ): Map<String, Long> {
     if (knownMonkeys.containsKey(root.operandMonkey1) and knownMonkeys.containsKey(root.operandMonkey2)) {
         return knownMonkeys
@@ -107,6 +107,7 @@ private fun fillInValues(
             }
             .associate { monkeyResult -> monkeyResult.monkeyName to monkeyResult.monkeyValue }
             .toMutableMap()
+
         if (newlyDiscoveredVals.isEmpty()) {
             //can't solve anymore (part 2 thing)
             return knownMonkeys
@@ -114,7 +115,7 @@ private fun fillInValues(
 
         newlyDiscoveredVals.putAll(knownMonkeys)
 
-        return fillInValues(
+        return findAllPossibleValuesIteratively(
             newlyDiscoveredVals,
             unknownMonkeys.filter { monkey -> !newlyDiscoveredVals.containsKey(monkey.resultMonkey) },
             root
@@ -124,17 +125,17 @@ private fun fillInValues(
 
 private fun findValueForEquation(
     knownMonkeys: Map<String, Long>,
-    monkeyMaths: MonkeyMaths
+    monkeyWithMaths: MonkeyWithMaths
 ): Long {
-    val operand1Value = knownMonkeys.getValue(monkeyMaths.operandMonkey1)
-    val operand2Value = knownMonkeys.getValue(monkeyMaths.operandMonkey2)
-    return monkeyMaths.operator.function(operand1Value, operand2Value)
+    val operand1Value = knownMonkeys.getValue(monkeyWithMaths.operandMonkey1)
+    val operand2Value = knownMonkeys.getValue(monkeyWithMaths.operandMonkey2)
+    return monkeyWithMaths.operator.function(operand1Value, operand2Value)
 }
 
-private fun parseMonkey(splitLine: List<String>): MonkeyMaths {
+private fun parseMonkey(splitLine: List<String>): MonkeyWithMaths {
     val opRaw = splitLine[2]
     val operator: Operator = Operator.values().first { op -> op.rawVal == opRaw }
-    return MonkeyMaths(splitLine[0].replace(":", ""), splitLine[1], splitLine[3], operator)
+    return MonkeyWithMaths(splitLine[0].replace(":", ""), splitLine[1], splitLine[3], operator)
 }
 
 enum class Operator(val rawVal: String, val function: (Long, Long) -> Long, val inverseFunction: (Long, Long) -> Long) {
@@ -144,7 +145,7 @@ enum class Operator(val rawVal: String, val function: (Long, Long) -> Long, val 
     DIVIDE("/", Long::div, Long::times)
 }
 
-class MonkeyMaths(
+class MonkeyWithMaths(
     val resultMonkey: String, val operandMonkey1: String,
     val operandMonkey2: String, val operator: Operator
 )
