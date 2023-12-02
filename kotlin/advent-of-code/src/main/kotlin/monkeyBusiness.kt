@@ -16,6 +16,7 @@ public fun solve(lines: List<String>) {
 
     //part 2
     val part2Map = knownMonkeys.toMutableMap()
+    val foo = "dgsfds"
     part2Map.remove("humn")
 
     val partiallyCompleteMonkeys: MutableMap<String, Long> =
