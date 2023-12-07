@@ -259,16 +259,16 @@ defmodule Advent2023 do
   end
 
   def day6P1 do
-    times_and_distances = parseInput()
-      |> Enum.map(fn line -> splitAndTrim(line, ":") |> tl() end)
+    numbers = parseInput()
+    |> Enum.map(fn line -> splitAndTrim(line, ":") |> tl() end)
+    times_and_distances = numbers
       |> Enum.map(fn numbers ->
         splitAndTrim(hd(numbers), " ")
         |> Enum.map(fn number_str -> convert_to_int(number_str) end)
       end)
       |> Enum.zip()
 
-    [time, distance] = parseInput()
-      |> Enum.map(fn line -> splitAndTrim(line, ":") |> tl() end)
+    [time, distance] = numbers
       |> Enum.map(fn numbers ->
         convert_to_int(String.replace(hd(numbers), " ", ""))
       end)
@@ -277,11 +277,12 @@ defmodule Advent2023 do
     times_and_distances = [{time, distance}]
 
     Enum.map(times_and_distances, fn {race_time, distance} ->
-      # y = race_time * x - x^2 and y = distance
+      # distance = race_time * held_time - held_time^2
+      # solve for held_time when distance is the max current distance then find range
       quadratic = abs(-race_time + (:math.sqrt(race_time * race_time - 4 * -1 * -distance))) / 2
-      range_start = ceil(quadratic + 0.01) # ensures we round to the nearest int + 1 (lack of Elixir knowledge...)
+      range_start = ceil(quadratic)
       range_end = race_time - floor(quadratic)
-      range_end - range_start
+      ceil(range_end) - floor(range_start) - 1
     end)
     |> Enum.reduce(1, fn possible_ways, acc -> acc * possible_ways end)
   end
