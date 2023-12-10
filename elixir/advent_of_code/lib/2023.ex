@@ -186,6 +186,7 @@ defmodule Advent2023 do
             map
         end
       end)
+
     IO.inspect(all_mappings)
 
     IO.inspect(tl(splitAndTrim(seeds, ":")))
@@ -196,7 +197,11 @@ defmodule Advent2023 do
       |> splitAndTrim(" ")
       |> Enum.map(fn value -> convert_to_int(value) end)
       |> Enum.map(fn seedValue ->
-        down_the_seed_hole(%Range{range_start: seedValue, range_end: seedValue}, all_mappings, "seed")
+        down_the_seed_hole(
+          %Range{range_start: seedValue, range_end: seedValue},
+          all_mappings,
+          "seed"
+        )
       end)
       |> Enum.min()
 
@@ -238,52 +243,279 @@ defmodule Advent2023 do
         # for a range, find the number of ways it could be mapped then find the min of these
         # and also store the values in case the same range gets hit a second time?
 
-        #completely contained in another range, what happens if not?
-        range_start >= seed_map.sourceStart and range_end  <= seed_map.sourceStart + seed_map.offset
+        # completely contained in another range, what happens if not?
+        range_start >= seed_map.sourceStart and
+          range_end <= seed_map.sourceStart + seed_map.offset
       end)
 
     next_dest = hd(mapping_list).destination
-    possible_transformations = case filtered_map do
-      [] -> [0]
-      _ -> Enum.map(filtered_map, fn map -> map.transformation end)
-    end
+
+    possible_transformations =
+      case filtered_map do
+        [] -> [0]
+        _ -> Enum.map(filtered_map, fn map -> map.transformation end)
+      end
+
     Enum.map(possible_transformations, fn transformation ->
       next_input = range_start + transformation
+
       if next_dest == "location" do
         next_input
       else
-        down_the_seed_hole(%Range{range_start: next_input, range_end: next_input}, mappings, next_dest)
+        down_the_seed_hole(
+          %Range{range_start: next_input, range_end: next_input},
+          mappings,
+          next_dest
+        )
       end
     end)
     |> Enum.min()
   end
 
   def day6P1 do
-    numbers = parseInput()
-    |> Enum.map(fn line -> splitAndTrim(line, ":") |> tl() end)
-    times_and_distances = numbers
+    numbers =
+      parseInput()
+      |> Enum.map(fn line -> splitAndTrim(line, ":") |> tl() end)
+
+    times_and_distances =
+      numbers
       |> Enum.map(fn numbers ->
         splitAndTrim(hd(numbers), " ")
         |> Enum.map(fn number_str -> convert_to_int(number_str) end)
       end)
       |> Enum.zip()
 
-    [time, distance] = numbers
+    [time, distance] =
+      numbers
       |> Enum.map(fn numbers ->
         convert_to_int(String.replace(hd(numbers), " ", ""))
       end)
 
-    #part 2
+    # part 2
     times_and_distances = [{time, distance}]
 
     Enum.map(times_and_distances, fn {race_time, distance} ->
       # distance = race_time * held_time - held_time^2
       # solve for held_time when distance is the max current distance then find range
-      quadratic = abs(-race_time + (:math.sqrt(race_time * race_time - 4 * -1 * -distance))) / 2
+      quadratic = abs(-race_time + :math.sqrt(race_time * race_time - 4 * -1 * -distance)) / 2
       range_start = ceil(quadratic)
       range_end = race_time - floor(quadratic)
       ceil(range_end) - floor(range_start) - 1
     end)
     |> Enum.reduce(1, fn possible_ways, acc -> acc * possible_ways end)
+  end
+
+  defp find_max_value_in_map(map) do
+    sorted_freq_map =
+      map
+      |> Map.to_list()
+      |> Enum.sort(fn {_key, value}, {key_2, value_2} -> value > value_2 end)
+
+    [{max_key, max_value} | tail] = sorted_freq_map
+
+    case max_key do
+      "J" ->
+        case tail do
+          [] ->
+            {"J", map}
+
+          _ ->
+            {second_key, second_value} = hd(tail)
+            map = Map.put(map, second_key, second_value + Map.get(map, "J", 0))
+            map = Map.delete(map, "J")
+            {second_key, map}
+        end
+
+      _ ->
+        map = Map.put(map, max_key, max_value + Map.get(map, "J", 0))
+        map = Map.delete(map, "J")
+        {max_key, map}
+    end
+  end
+
+  def map_card_to_number(card, lookup_map) do
+    if Map.has_key?(lookup_map, card) do
+      Map.get(lookup_map, card)
+    else
+      String.to_integer(card)
+    end
+  end
+
+  def iterate_through_strings_until_difference(cardset_a, cardset_b, lookup_map) do
+    case cardset_a do
+      "" ->
+        :card_a
+
+      _ ->
+        card_a_value = map_card_to_number(String.first(cardset_a), lookup_map)
+        card_b_value = map_card_to_number(String.first(cardset_b), lookup_map)
+
+        case card_a_value - card_b_value do
+          0 ->
+            iterate_through_strings_until_difference(
+              String.slice(cardset_a, 1, 5),
+              String.slice(cardset_b, 1, 5),
+              lookup_map
+            )
+
+          neg when neg < 0 ->
+            :card_b
+
+          pos when pos > 0 ->
+            :card_a
+        end
+    end
+  end
+
+  def day7P1 do
+    lookup_map = %{
+      "A" => 14,
+      "K" => 13,
+      "Q" => 12,
+      "J" => 1,
+      "T" => 10
+    }
+
+    # for part 2 probably best approach is find max char without J then assume J is that char
+    # if J is max char then find the strongest other char in freq map
+
+    numbers =
+      parseInput()
+      |> Enum.map(fn line -> splitAndTrim(line, " ") end)
+      |> Enum.map(fn [hand, bid] ->
+        freq_map = Enum.frequencies(String.graphemes(hand))
+        {freq_map, convert_to_int(bid), hand}
+      end)
+      |> Enum.sort(fn {freq_map_a, bid_a, cards_a}, {freq_map_b, bid_b, cards_b} ->
+        {max_key_a, updated_map_a} = find_max_value_in_map(freq_map_a)
+        {max_key_b, updated_map_b} = find_max_value_in_map(freq_map_b)
+
+        max_matching_cards_a = Map.get(updated_map_a, max_key_a)
+        max_matching_cards_b = Map.get(updated_map_b, max_key_b)
+
+        # return true if the first argument preceeds the latter
+
+        stronger_card =
+          case max_matching_cards_a - max_matching_cards_b do
+            0 ->
+              # horrible check for a full house
+              stronger_card =
+                case {max_matching_cards_a, map_size(updated_map_a), map_size(updated_map_b)} do
+                  {3, 2, b} when b != 2 ->
+                    :card_a
+
+                  {3, a, 2} when a != 2 ->
+                    :card_b
+
+                  # horrible check for 2 pair
+                  {2, 3, b} when b != 3 ->
+                    :card_a
+
+                  {2, a, 3} when a != 3 ->
+                    :card_b
+
+                  _ ->
+                    iterate_through_strings_until_difference(
+                      cards_a,
+                      cards_b,
+                      lookup_map
+                    )
+                end
+
+              case stronger_card do
+                :card_a -> true
+                :card_b -> false
+              end
+
+            _ ->
+              max_matching_cards_a >= max_matching_cards_b
+          end
+      end)
+
+    numbers
+    |> Enum.reverse()
+    |> Enum.reduce({0, 1}, fn {map, bid, hand}, {running_sum, rank} ->
+      # {%{"A" => 1, "J" => 1, "Q" => 3}, 483, "QQQJA"}
+      {running_sum + rank * bid, rank + 1}
+    end)
+    |> elem(0)
+  end
+
+  def day8 do
+    lines = parseInput()
+
+    nodes = tl(lines)
+
+    lookup_map =
+      Enum.reduce(nodes, %{}, fn line, lookup_map ->
+        [node_name, left_right] = splitAndTrim(line, "=")
+        [left, right] = splitAndTrim(left_right, ",")
+        left = String.replace_prefix(left, "(", "")
+        right = String.replace_suffix(right, ")", "")
+        Map.put(lookup_map, node_name, [left, right])
+      end)
+
+    instructions = String.graphemes(hd(lines))
+    # part1 = recurse_through_instructions("11A", instructions, lookup_map, 0, "Z")
+    IO.inspect(lookup_map)
+
+    steps_for_each_node =
+      Enum.filter(lookup_map, fn {key, value} ->
+        String.ends_with?(key, "A")
+      end)
+      |> Enum.map(fn {key, value} -> recurse_through_instructions(key, instructions, lookup_map, 0, "Z") end)
+
+    [head | tail] = steps_for_each_node
+    Enum.reduce(tail, head, fn term, acc ->
+      div(abs(term * acc), gcd(acc, rem(term, acc)))
+    end)
+    # OK so for each steps is a cycle and we need to find when each cycle will all line up at once
+  end
+
+  defp gcd(a, 0), do: a
+  defp gcd(a, b), do: gcd(b, rem(a, b))
+
+  defp find_next_node(node, instruction, lookup_map) do
+    [left, right] = Map.get(lookup_map, node)
+
+    case instruction do
+      "L" -> left
+      "R" -> right
+    end
+  end
+
+  # defp day8_bruteforce(current_nodes, instructions_list, steps, lookup_map) do
+  #   all_match =
+  #     Enum.map(current_nodes, fn node -> String.ends_with?(node, "Z") end)
+  #     |> Enum.all?()
+
+  #   if all_match do
+  #     steps
+  #   else
+  #     instruction = hd(instructions_list)
+  #     next_nodes = Enum.map(current_nodes, fn node ->
+  #       find_next_node(node, instruction, lookup_map)
+  #     end)
+  #     day8_part2(next_nodes, tl(instructions_list) ++ [instruction], steps + 1, lookup_map)
+  #   end
+  # end
+
+  defp recurse_through_instructions(node, instructions_list, lookup_map, steps, match_criteria) do
+    case String.ends_with?(node, match_criteria) do
+      true ->
+        steps
+
+      _ ->
+        instruction = hd(instructions_list)
+        next_node = find_next_node(node, instruction, lookup_map)
+
+        recurse_through_instructions(
+          next_node,
+          tl(instructions_list) ++ [instruction],
+          lookup_map,
+          steps + 1,
+          match_criteria
+        )
+    end
   end
 end
