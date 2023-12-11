@@ -463,12 +463,16 @@ defmodule Advent2023 do
       Enum.filter(lookup_map, fn {key, value} ->
         String.ends_with?(key, "A")
       end)
-      |> Enum.map(fn {key, value} -> recurse_through_instructions(key, instructions, lookup_map, 0, "Z") end)
+      |> Enum.map(fn {key, value} ->
+        recurse_through_instructions(key, instructions, lookup_map, 0, "Z")
+      end)
 
     [head | tail] = steps_for_each_node
+
     Enum.reduce(tail, head, fn term, acc ->
       div(abs(term * acc), gcd(acc, rem(term, acc)))
     end)
+
     # OK so for each steps is a cycle and we need to find when each cycle will all line up at once
   end
 
@@ -516,6 +520,48 @@ defmodule Advent2023 do
           steps + 1,
           match_criteria
         )
+    end
+  end
+
+  def day9 do
+    # there IS a function that can compute n + 1 for all sequences (otherwise this wouldn't work at all)
+    # there is definitely something related to the number of times you recurse being quadratic that would speed this up...
+    # oh well brute force
+    lines = parseInput()
+
+    Enum.reduce(lines, 0, fn line, acc ->
+      sequence = splitAndTrim(line, " ") |> Enum.map(fn num -> convert_to_int(num) end)
+      meta_list = recursively_find_differences(sequence, [sequence])
+
+      _part_one =
+        Enum.reduce(meta_list, 0, fn sub_list, sub_acc ->
+          sub_acc + hd(Enum.reverse(sub_list))
+        end)
+
+      # I guess work back up the list keeping the diff in a variable ...
+      nMinusOneTerm =
+        Enum.reduce(Enum.reverse(meta_list), {0, 0}, fn line, {sub_acc, prev_term} ->
+          res = hd(line) - prev_term
+          {sub_acc + res, res}
+        end)
+        |> elem(1)
+
+      acc + nMinusOneTerm
+    end)
+  end
+
+  def findDifferences(sequence) do
+    Enum.chunk_every(sequence, 2, 1, :discard)
+    |> Enum.map(fn [first, second] -> second - first end)
+  end
+
+  def recursively_find_differences(sequence, all_sequences) do
+    differences = findDifferences(sequence)
+    allZeros = Enum.all?(differences, fn diff -> diff == 0 end)
+
+    case allZeros do
+      false -> recursively_find_differences(differences, all_sequences ++ [differences])
+      true -> all_sequences ++ [differences]
     end
   end
 end
