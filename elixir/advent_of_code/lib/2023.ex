@@ -564,4 +564,157 @@ defmodule Advent2023 do
       true -> all_sequences ++ [differences]
     end
   end
+  def day11 do
+    lines = parseInput()
+
+    expandedRows =
+      Enum.flat_map(lines, fn line ->
+        if String.match?(line, ~r/#/) do
+          [line]
+        else
+          [line, line]
+        end
+      end)
+
+    row_length = String.length(hd(expandedRows))
+    flatten_input = String.graphemes(Enum.join(expandedRows))
+    total_length = length(flatten_input)
+
+    mapped_cols =
+      Enum.flat_map(Enum.to_list(0..(row_length - 1)), fn index ->
+        column = Enum.take_every(Enum.take(flatten_input, index - total_length), row_length)
+
+        if Enum.any?(column, fn point -> point == "#" end) do
+          [column]
+        else
+          [column, column]
+        end
+      end)
+
+    col_length = length(hd(mapped_cols))
+
+    back_to_rows =
+      Enum.map(Enum.to_list(0..(col_length - 1)), fn index ->
+        Enum.map(mapped_cols, fn column ->
+          Enum.at(column, index)
+        end)
+      end)
+
+    # should be possible to do a shortcut and just work out how many along and how many down
+    galaxies = d11_find_galaxy_positions(back_to_rows)
+
+    IO.inspect(galaxies)
+
+    everything =
+      iterate_through_galaxy_pairs(galaxies, [])
+      |> List.flatten()
+
+    IO.inspect(everything)
+
+    Enum.sum(everything)
+  end
+
+  def day11_part2 do
+    input_grid =
+      parseInput()
+      |> Enum.map(fn line -> String.graphemes(line) end)
+
+    galaxies = d11_find_galaxy_positions(input_grid)
+
+    IO.inspect(galaxies)
+
+    # iterate through grid again
+    # if empty col adjust all y + 1_000_000
+    thing = day11_transform(input_grid, galaxies, :row)
+
+    # part 2 repeat for columns
+
+    IO.inspect(thing)
+    columns = d11_find_cols(List.flatten(input_grid), length(hd(input_grid)), 0, [])
+      |> Enum.reverse()
+    IO.inspect(columns)
+    galaxies_adjusted = day11_transform(columns, thing, :col)
+
+    IO.inspect(galaxies_adjusted)
+
+    iterate_through_galaxy_pairs(galaxies_adjusted, [])
+    |> List.flatten()
+    |> Enum.sum()
+  end
+
+  defp d11_find_galaxy_positions(grid) do
+    Enum.reduce(grid, {[], {0, 0}}, fn row, {galaxy_positions, {x, y}} ->
+      {galaxies_on_row, {x, y}} =
+        Enum.reduce(row, {[], {x, 0}}, fn position, {gr, {x, y}} ->
+          if position == "#" do
+            {[{x, y} | gr], {x, y + 1}}
+          else
+            {gr, {x, y + 1}}
+          end
+        end)
+
+      {galaxy_positions ++ galaxies_on_row, {x + 1, 0}}
+    end)
+    |> elem(0)
+  end
+
+  defp day11_transform(data_grid, galaxies, type) do
+    Enum.reduce(data_grid, {0, galaxies}, fn row, {index, galaxies} ->
+      if Enum.all?(row, fn point -> point == "." end) do
+        {index + 1,
+         Enum.map(galaxies, fn {x, y} ->
+           case type do
+             :col ->
+               if y > index do
+                 {x, y + 100}
+               else
+                 {x, y}
+               end
+
+             :row ->
+               if x > index do
+                 {x + 100, y}
+               else
+                 {x, y}
+               end
+           end
+         end)}
+      else
+        {index + 1, galaxies}
+      end
+    end)
+    |> elem(1)
+  end
+
+  defp d11_find_cols(flat_input, row_size, index, columns) do
+    if index >= row_size do
+      columns
+    else
+      d11_find_cols(tl(flat_input), row_size, index + 1, [Enum.take_every(flat_input, row_size) | columns])
+    end
+  end
+
+  defp iterate_through_galaxy_pairs([], shortest_paths) do
+    shortest_paths
+  end
+
+  defp iterate_through_galaxy_pairs([{g1_x, g1_y} | tail], shortest_paths) do
+    res =
+      Enum.map(tail, fn {g2_x, g2_y} ->
+        dx = abs(g1_x - g2_x)
+        dy = abs(g1_y - g2_y)
+        dx + dy
+      end)
+
+    iterate_through_galaxy_pairs(tail, [res | shortest_paths])
+  end
+
+  defp find_short_path_for_galaxy_pair(galaxy_1, galaxy_2, row_size) do
+    g1_x = div(galaxy_1, row_size)
+    g1_y = rem(galaxy_1, row_size)
+
+    g2_y = rem(galaxy_2, row_size)
+    g2_x = div(galaxy_2, row_size)
+    abs(g1_x - g2_x) + abs(g1_y - g2_y)
+  end
 end
