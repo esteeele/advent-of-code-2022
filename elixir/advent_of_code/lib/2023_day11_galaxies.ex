@@ -137,4 +137,18 @@ defmodule Day11Galaxies do
     File.read!("./lib/input.txt")
     |> String.split("\n", trim: true)
   end
+
+  def day12 do
+    parseInput()
+    |> Enum.map(fn line ->
+      [springs, list_lengths] = String.split(line, " ")
+
+      lists_nums =
+        String.graphemes(list_lengths)
+        |> Enum.map(fn len -> String.to_integer(len) end)
+
+      {String.graphemes(springs), lists_nums}
+    end)
+  end
+
 end
